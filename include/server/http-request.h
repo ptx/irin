@@ -1,6 +1,7 @@
 #ifndef _HTTP_REQUEST_HEADER_H_
 #define _HTTP_REQUEST_HEADER_H_
 
+#include "server/http-headers.h"
 #include "server/http-methods.h"
 #include "server/http-versions.h"
 #include <string>
@@ -9,10 +10,16 @@
 class HttpRequest {
   public:
     HttpRequest(std::vector<char> vec);
+    HttpRequest(const HttpMethod method, const std::string request_uri,
+      const std::vector<HttpHeader> &headers, const HttpVersion version);
     inline HttpMethod Method() { return method_; };
     inline std::string RequestUri() {return request_uri_; };
+    inline std::vector<HttpHeader> Headers() { return headers_; };
+    inline HttpVersion Version() { return version_; };
+    std::string RootUri();
     std::string ToString();
   private:
+    std::vector<HttpHeader> headers_;
     HttpMethod method_;
     HttpVersion version_;
     std::string request_uri_;

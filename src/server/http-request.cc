@@ -3,6 +3,14 @@
 #include "server/http-request.h"
 #include <iostream>
 
+HttpRequest::HttpRequest(const HttpMethod method, const std::string request_uri,
+  const std::vector<HttpHeader> &headers, const HttpVersion http_version) {
+    this->method_ = method;
+    this->request_uri_ = request_uri;
+    this->headers_ = headers;
+    this->version_ = http_version;
+};
+
 HttpRequest::HttpRequest(std::vector<char> req) {
   bool eol = false;
   int idx = 0;
@@ -19,6 +27,30 @@ HttpRequest::HttpRequest(std::vector<char> req) {
   }
   auto request_line_vector = copy_vector_splice(req, 0, idx);
   parse_request_line(request_line_vector);
+};
+
+std::string HttpRequest::RootUri() {
+  std::string uri = request_uri_;
+  bool second_separator_found = false;
+  int idx = 0;
+  int separator_count = 0;
+  size_t uri_size = uri.size();
+  while(!second_separator_found && idx < uri_size) {
+    if(uri[idx] == '/') {
+      ++separator_count;
+      if(separator_count == 2)
+        second_separator_found = true;
+      else
+        ++idx;
+    } else {
+      ++idx;
+    }
+  }
+
+  if(!second_separator_found)
+    return uri;
+
+  return std::string(uri.begin(), uri.begin() + idx);
 };
 
 void HttpRequest::parse_request_line(const std::vector<char> &req_line_chars) {

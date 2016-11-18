@@ -10,11 +10,21 @@
 HttpResponse::HttpResponse(const HttpStatus http_status) {
   this->http_status_ = http_status;
   this->body_ = boost::none;
+  this->http_version_ = HttpVersions::HttpVersion_1_1;
 };
 
 HttpResponse::HttpResponse(const HttpStatus http_status, const std::vector<char>& body) {
   this->http_status_ = http_status;
   this->body_ = body;
+  this->http_version_ = HttpVersions::HttpVersion_1_1;
+};
+
+HttpResponse::HttpResponse(const HttpStatus http_status, const HttpVersion &version, 
+  const std::vector<HttpHeader>& headers, const std::vector<char>& body) {
+  this->http_status_ = http_status;
+  this->body_ = body;
+  this->headers_ = headers;
+  this->http_version_ = version;
 };
 
 std::string HttpResponse::dateString() {
@@ -63,8 +73,10 @@ size_t HttpResponse::WriteToArray(char array[]) {
     array[num_bytes] = response_string[num_bytes];
     ++num_bytes;
   }
-  ++num_bytes;
-  array[num_bytes] = '\0';
+  if(body_) {
+    ++num_bytes;
+    array[num_bytes] = '\0';
+  }
 
   return num_bytes;
 };
@@ -80,28 +92,18 @@ std::string HttpResponse::build_response_string() {
     header_str += line;
   }
   header_str += "\r\n";
-  return header_str + this->body();
-};
-
-std::string HttpResponse::body() {
-  std::string body = "";
-  try {
-    std::vector<char> body = this->body_.value();
-    std::string fbod(body.begin(), body.end());
-    return fbod;
-  } catch (const boost::bad_optional_access&) {
-    return "";
+  if(this->body_) {
+    auto body = *body_;
+    return header_str + std::string(body.begin(), body.end());
   }
-  return body;
+  return header_str;
 };
 
 int HttpResponse::body_size() {
-  int size = 0;
-  try {
-    std::vector<char> body = this->body_.value();
-    size = body.size();
-  } catch (const boost::bad_optional_access&) {
-    size = 0;
+  if(body_) {
+    auto body = *body_;
+    return body.size();
   }
-  return size;
+
+  return 0;
 };

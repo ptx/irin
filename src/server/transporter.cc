@@ -1,4 +1,5 @@
 #include <boost/asio.hpp>
+#include "server/http-message-decoder.h"
 #include "server/http-request.h"
 #include "server/transporter.h"
 #include <iostream>
@@ -13,13 +14,14 @@ Transporter::Transporter(short port) :
     write_buffer_[i] = ' ';
 };
 
-std::unique_ptr<HttpRequest> Transporter::Read() {
+boost::optional<std::unique_ptr<HttpRequest>> Transporter::Read() {
   acceptor_.accept(socket_);
   boost::system::error_code error;
   size_t length = socket_.read_some(boost::asio::buffer(data_), error);
   std::vector<char> request_bytes = slice_read_chars(length);
-  std::unique_ptr<HttpRequest> req(new HttpRequest(request_bytes));
-  return req;
+
+  std::unique_ptr<HttpMessageDecoder> decoder(new HttpMessageDecoder(request_bytes));
+  return decoder->DecodeRequest();
 };
 
 void Transporter::Write(const std::unique_ptr<HttpResponse> &response) {
@@ -40,7 +42,7 @@ void Transporter::Write(const std::unique_ptr<HttpResponse> &response) {
 std::vector<char> Transporter::slice_read_chars(size_t num_chars) {
   std::vector<char> chars;
   chars.reserve(num_chars);
-  for(int idx = 0;idx < num_chars;++idx)
+  for(size_t idx = 0;idx < num_chars;++idx)
     chars.push_back(data_[idx]);
   return chars;
 };
