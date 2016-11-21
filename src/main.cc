@@ -13,7 +13,7 @@ namespace {
   const size_t kSuccess = 0;
   const size_t kErrorInCommandLine = 1;
   const size_t kErrorUnhandledException = 2;
-  const std::string kVersionNumber = "0.0.1-SNAPSHOT";
+  const std::string kVersionNumber = "0.0.2";
 }
 
 int main(int argc, char** argv) {
@@ -25,11 +25,15 @@ int main(int argc, char** argv) {
       ("help,h", "Print help message")
       ("directory,d", po::value<std::string>()->required(), "Required Absolute PATH for the pages directory")
       ("version,v", "Print the version number")
+      ("proxy-host", po::value<std::string>()->required(), "Required host to proxy")
+      ("proxy-port", po::value<std::string>()->required(), "required port to proxy")
       ("port,p", "Port on which traffic will be served. DEFAULT: 8000");
     po::variables_map vm;
     try {
       po::store(po::parse_command_line(argc, argv, desc), vm);
-      if(vm.count("directory")) {
+      if(vm.count("proxy-host") && vm.count("proxy-port") && vm.count("directory")) {
+        std::string proxy_host = vm["proxy-host"].as<std::string>();
+        std::string proxy_port = vm["proxy-port"].as<std::string>();
         std::string pages_dir = vm["directory"].as<std::string>();
         int port = 8000;
 
@@ -38,28 +42,31 @@ int main(int argc, char** argv) {
         std::vector<std::string> proxy_uris;
         proxy_uris.push_back("/api");
         std::unique_ptr<ContentService> content_service(new ContentService(pages_dir));
-        std::unique_ptr<ProxyService> proxy_service(new ProxyService());
+        std::unique_ptr<ProxyService> proxy_service(new ProxyService(proxy_host, proxy_port));
         std::unique_ptr<IrinService> service(new IrinService(proxy_uris, content_service,
           proxy_service));
         std::unique_ptr<Transporter> transporter(new Transporter(port));
         std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(service, transporter));
 
         dispatcher->Run();
-      } else if(vm.count("directory") && vm.count("port")) {
-        std::string pages_dir = vm["directory"].as<std::string>();
-        int port = vm["port"].as<int>();
+      } else if(vm.count("proxy-host") && vm.count("proxy-port") && vm.count("directory") && 
+          vm.count("port")) {
+          std::string proxy_host = vm["proxy-host"].as<std::string>();
+          std::string proxy_port = vm["proxy-port"].as<std::string>();
+          std::string pages_dir = vm["directory"].as<std::string>();
+          int port = vm["port"].as<int>();
 
-        BOOST_LOG_TRIVIAL(info) << build_log_info(port, pages_dir);
-        std::vector<std::string> proxy_uris;
-        proxy_uris.push_back("/api");
-        std::unique_ptr<ContentService> content_service(new ContentService(pages_dir));
-        std::unique_ptr<ProxyService> proxy_service(new ProxyService());
-        std::unique_ptr<IrinService> service(new IrinService(proxy_uris, content_service,
-          proxy_service));
-        std::unique_ptr<Transporter> transporter(new Transporter(port));
-        std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(service, transporter));
+          BOOST_LOG_TRIVIAL(info) << build_log_info(port, pages_dir);
+          std::vector<std::string> proxy_uris;
+          proxy_uris.push_back("/api");
+          std::unique_ptr<ContentService> content_service(new ContentService(pages_dir));
+          std::unique_ptr<ProxyService> proxy_service(new ProxyService(proxy_host, proxy_port));
+          std::unique_ptr<IrinService> service(new IrinService(proxy_uris, content_service,
+            proxy_service));
+          std::unique_ptr<Transporter> transporter(new Transporter(port));
+          std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(service, transporter));
 
-        dispatcher->Run(); 
+          dispatcher->Run(); 
       } else if(vm.count("help")) {
         std::cout << "irin - a simple webserver and transpiler to help build React applications"
           << std::endl;

@@ -3,15 +3,20 @@
 #include "server/http-message-decoder.h"
 #include "services/proxy-service.h"
 
-ProxyService::ProxyService() : resolver_(io_service_), socket_(io_service_) {
-  for(size_t i = 0;i < kReadBufferSize;++i)
-    read_buffer_[i] = ' ';
+ProxyService::ProxyService(const std::string &host, const std::string &port)
+  : resolver_(io_service_), socket_(io_service_) {
+    this->proxy_host_ = host;
+    this->proxy_port_ = port;
+    for(size_t i = 0;i < kReadBufferSize;++i)
+      read_buffer_[i] = ' ';
+
+    BOOST_LOG_TRIVIAL(info) << "Proxying " << proxy_host_ << ":" << proxy_port_;
 };
 
 std::unique_ptr<HttpResponse> ProxyService::Handle(const 
   std::unique_ptr<HttpRequest> &http_request) {
     // prepare connection
-    tcp::resolver::query query("127.0.0.1", "9000");
+    tcp::resolver::query query(proxy_host_, proxy_port_);
     boost::asio::io_service io;
     tcp::resolver resolv(io);
     tcp::resolver::iterator endpoint_iterator = resolv.resolve(query);
