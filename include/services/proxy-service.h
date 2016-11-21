@@ -10,7 +10,7 @@ using boost::asio::ip::tcp;
 
 class ProxyService {
   public:
-    ProxyService() : resolver_(io_service_), socket_(io_service_) {};
+    ProxyService(); // : resolver_(io_service_), socket_(io_service_) {};
     std::unique_ptr<HttpResponse> Handle(const std::unique_ptr<HttpRequest> &http_request);
   private:
     boost::asio::io_service io_service_;
@@ -18,6 +18,9 @@ class ProxyService {
     tcp::socket socket_;
     void build_request(boost::asio::streambuf &tcp_request, const
       std::unique_ptr<HttpRequest> &http_request);
+    std::vector<char> decode_response(const boost::asio::streambuf &tcp_response);
+    static const size_t kReadBufferSize = 1000000;
+    char read_buffer_[kReadBufferSize];
 };
 
 #endif

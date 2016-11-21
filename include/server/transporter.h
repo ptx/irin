@@ -2,6 +2,7 @@
 #define _TRANSPORTER_HEADER_H_
 
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include "server/http-request.h"
 #include "server/http-response.h"
 #include "server/http-methods.h"
@@ -12,7 +13,7 @@ using boost::asio::ip::tcp;
 class Transporter {
   public:
     Transporter(short port);
-    std::unique_ptr<HttpRequest> Read();
+    boost::optional<std::unique_ptr<HttpRequest>> Read();
     void Write(const std::unique_ptr<HttpResponse> &response);
   private:
     short port_;

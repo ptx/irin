@@ -1,56 +1,39 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
-#include "server/content-service.h"
 #include "server/http-request.h"
 #include "server/dispatcher.h"
-#include "server/proxy-service.h"
+#include "services/content-service.h"
+#include "services/proxy-service.h"
 #include <iostream>
 
-Dispatcher::Dispatcher(std::unique_ptr<ContentService> &service, 
+Dispatcher::Dispatcher(std::unique_ptr<IrinService> &service, 
   std::unique_ptr<Transporter> &transporter) {
     this->service_     = std::move(service);
     this->transporter_ = std::move(transporter);
 };
 
 void Dispatcher::Run() {
-  std::unique_ptr<ProxyService> proxy_service(new ProxyService());
 
   while(true) {
-    std::unique_ptr<HttpRequest> request = transporter_->Read();
+    auto optional_request = transporter_->Read();
 
     std::unique_ptr<HttpResponse> response;
-    auto root = request_uri_root(request->RequestUri());
-    if(root.compare("/api") == 0)
-      response = proxy_service->Handle(request);
-    else
+    if(optional_request) {
+      std::unique_ptr<HttpRequest> request = std::move(*optional_request);
       response = service_->Handle(request);
+      log_request_response(request->ToString(), response->GetHttpStatus());
+    } else {
+      std::unique_ptr<HttpResponse> bad(new HttpResponse(HttpStatuses::BadRequest));
+      response = std::move(bad);
+      log_response(std::move(bad));
+    }
 
-    log_request_response(request->ToString(), response->GetHttpStatus());
     transporter_->Write(response);
   }
 };
 
-std::string Dispatcher::request_uri_root(const std::string &uri) {
-  bool second_separator_found = false;
-  int idx = 0;
-  int separator_count = 0;
-  size_t uri_size = uri.size();
-  while(!second_separator_found && idx < uri_size) {
-    if(uri[idx] == '/') {
-      ++separator_count;
-      if(separator_count == 2)
-        second_separator_found = true;
-      else
-        ++idx;
-    } else {
-      ++idx;
-    }
-  }
+void Dispatcher::log_response(const std::unique_ptr<HttpResponse> response) {
 
-  if(!second_separator_found)
-    return uri;
-
-  return std::string(uri.begin(), uri.begin() + idx);
 };
 
 void Dispatcher::log_request_response(const std::string &request_to_string, 
