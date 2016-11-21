@@ -1,22 +1,40 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include "boost/program_options.hpp"
+#include <csignal>
+#include <pthread.h>
 #include "server/dispatcher.h"
 #include "server/transporter.h"
+#include "services/watcher.h"
 #include "services/content-service.h"
 #include "services/irin-service.h"
 #include "services/proxy-service.h"
 
+
 std::string build_log_info(const int &port, const std::string &dir);
 
 namespace {
-  const size_t kSuccess = 0;
-  const size_t kErrorInCommandLine = 1;
-  const size_t kErrorUnhandledException = 2;
-  const std::string kVersionNumber = "0.0.2";
+  static const size_t kSuccess = 0;
+  static const size_t kErrorInCommandLine = 1;
+  static const size_t kErrorUnhandledException = 2;
+  static const std::string kVersionNumber = "0.0.2";
 }
 
+pthread_t server_thread;
+pthread_t watcher_thread;
+
+void signal_handler(int sig_num) {
+  BOOST_LOG_TRIVIAL(fatal) << "SIGTERM received, shutting down....";
+
+  void* result;
+  pthread_join(server_thread, &result);
+  pthread_join(watcher_thread, &result);
+
+  exit(0);
+};
+
 int main(int argc, char** argv) {
+  signal(SIGINT, signal_handler);
 
   try {
     namespace po = boost::program_options;
@@ -46,9 +64,14 @@ int main(int argc, char** argv) {
         std::unique_ptr<IrinService> service(new IrinService(proxy_uris, content_service,
           proxy_service));
         std::unique_ptr<Transporter> transporter(new Transporter(port));
-        std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(service, transporter));
+        std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(server_thread, service, transporter));
+        std::unique_ptr<Watcher> watcher(new Watcher(watcher_thread, "public"));
 
         dispatcher->Run();
+        watcher->Run();
+        while(true) {
+          // await SIGTERM
+        }
       } else if(vm.count("proxy-host") && vm.count("proxy-port") && vm.count("directory") && 
           vm.count("port")) {
           std::string proxy_host = vm["proxy-host"].as<std::string>();
@@ -64,7 +87,7 @@ int main(int argc, char** argv) {
           std::unique_ptr<IrinService> service(new IrinService(proxy_uris, content_service,
             proxy_service));
           std::unique_ptr<Transporter> transporter(new Transporter(port));
-          std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(service, transporter));
+          std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(server_thread, service, transporter));
 
           dispatcher->Run(); 
       } else if(vm.count("help")) {
