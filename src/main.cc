@@ -10,6 +10,7 @@
 #include "services/irin-service.h"
 #include "services/proxy-service.h"
 
+#define FOREVER while(1)
 
 std::string build_log_info(const int &port, const std::string &dir);
 
@@ -23,13 +24,20 @@ namespace {
 pthread_t server_thread;
 pthread_t watcher_thread;
 
+struct Services {
+  std::unique_ptr<Watcher> watcher;
+};
+Services services;
+
 void signal_handler(int sig_num) {
-  BOOST_LOG_TRIVIAL(fatal) << "SIGTERM received, shutting down....";
+  BOOST_LOG_TRIVIAL(info) << "SIGTERM received, shutting down....";
 
   void* result;
+  services.watcher->Stop();
   pthread_join(server_thread, &result);
   pthread_join(watcher_thread, &result);
 
+  BOOST_LOG_TRIVIAL(fatal) << "All services (threads) stopped. Shutdown completed";
   exit(0);
 };
 
@@ -65,12 +73,17 @@ int main(int argc, char** argv) {
           proxy_service));
         std::unique_ptr<Transporter> transporter(new Transporter(port));
         std::unique_ptr<Dispatcher> dispatcher(new Dispatcher(server_thread, service, transporter));
-        std::unique_ptr<Watcher> watcher(new Watcher(watcher_thread, "public"));
+        std::vector<std::string> paths;
+        paths.push_back("/Users/penland365/Development/ptx/irin/frontend/index.js");
+        paths.push_back("/Users/penland365/Development/ptx/irin/frontend/header.js");
+        std::unique_ptr<Watcher> watcher(new Watcher(watcher_thread, paths)); 
+        //std::unique_ptr<Watcher> watcher(new Watcher(watcher_thread, "./frontend/"));
 
         dispatcher->Run();
         watcher->Run();
-        while(true) {
-          // await SIGTERM
+        services.watcher = std::move(watcher);
+        FOREVER {
+          sleep(1);
         }
       } else if(vm.count("proxy-host") && vm.count("proxy-port") && vm.count("directory") && 
           vm.count("port")) {

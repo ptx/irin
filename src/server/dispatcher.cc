@@ -6,6 +6,8 @@
 #include "services/proxy-service.h"
 #include <iostream>
 
+#define FOREVER while(1)
+
 Dispatcher::Dispatcher(pthread_t thread, std::unique_ptr<IrinService> &service, 
   std::unique_ptr<Transporter> &transporter) {
     this->thread_      = thread;
@@ -22,7 +24,7 @@ void* Dispatcher::run_dispatcher(void* thread_variables) {
   std::unique_ptr<IrinService> service = std::move(variables->service_);
   std::unique_ptr<Transporter> transporter= std::move(variables->transporter_);
 
- while(true) {
+  FOREVER {
     auto optional_request = transporter->Read();
 
     std::unique_ptr<HttpResponse> response;
